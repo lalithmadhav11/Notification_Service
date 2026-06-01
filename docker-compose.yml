@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: notification-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: notification-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  api:
+    build: .
+    container_name: notification-api
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://mongodb:27017/notification_service
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=smtp.mailtrap.io
+      - SMTP_PORT=2525
+      - SMTP_USER=your_smtp_user
+      - SMTP_PASS=your_smtp_password
+    depends_on:
+      - mongodb
+      - redis
+
+  worker:
+    build: .
+    container_name: notification-worker
+    command: ["npm", "run", "worker"]
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/notification_service
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=smtp.mailtrap.io
+      - SMTP_PORT=2525
+      - SMTP_USER=your_smtp_user
+      - SMTP_PASS=your_smtp_password
+    depends_on:
+      - mongodb
+      - redis
+
+volumes:
+  mongo-data:
+  redis-data:
