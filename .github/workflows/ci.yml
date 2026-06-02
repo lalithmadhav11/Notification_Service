@@ -1,0 +1,46 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        env:
+          PORT: 3000
+          MONGO_URI: mongodb://localhost:27017/notification_service_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SMTP_HOST: localhost
+          SMTP_PORT: 1025
+          SMTP_USER: test-user
+          SMTP_PASS: test-pass
+        run: node --test tests/*.test.js
