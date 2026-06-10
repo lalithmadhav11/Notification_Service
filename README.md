@@ -196,3 +196,73 @@ db.notifications.find().pretty()
 db.notifications.countDocuments({ status: "DELIVERED" })
 ```
 
+---
+
+## Local Development
+
+### Step 1: Clone and install dependencies
+
+```bash
+git clone <your-repo-url>
+cd notification-service
+npm install
+```
+
+### Step 2: Configure environment variables
+
+```bash
+cp .env.example .env
+# Edit .env with your actual values:
+#   MONGO_URI, SMTP_HOST, SMTP_USER, SMTP_PASS
+```
+
+**Getting Mailtrap credentials:**
+1. Sign up at https://mailtrap.io (free)
+2. Go to Email Testing → Inboxes → your inbox → SMTP Settings
+3. Copy Host, Port, Username, Password into your .env
+
+### Step 3: Start Redis and MongoDB
+
+```bash
+# Using Docker (easiest):
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+docker run -d --name mongo -p 27017:27017 mongo:7
+```
+
+### Step 4: Start the API server
+
+```bash
+npm run dev
+# or
+node server.js
+
+# You should see:
+# [MongoDB] Connected successfully
+# [Redis] Ping successful
+# API Server: http://localhost:3000
+```
+
+### Step 5: Start the Worker (in a separate terminal)
+
+```bash
+node src/workers/emailWorker.js
+
+# You should see:
+# [MongoDB] Connected successfully
+# [Worker] Email worker ready | queue=email-notifications | concurrency=5
+```
+
+### Step 6: Send a test notification
+
+```bash
+curl -X POST http://localhost:3000/api/notifications/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "test@example.com",
+    "subject": "Your OTP Code",
+    "body": "<h1>Your OTP is 123456</h1>",
+    "type": "OTP"
+  }'
+```
+
+
