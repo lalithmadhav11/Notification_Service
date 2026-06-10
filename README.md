@@ -94,3 +94,105 @@ notification-service/
 ├── package.json
 └── .env.example
 ```
+
+---
+
+## Prerequisites
+
+- **Node.js** v18+ (LTS recommended)
+- **Redis** v7+ (running locally or via Docker)
+- **MongoDB** v6+ (running locally or MongoDB Atlas)
+- **Mailtrap account** (free) for email testing — https://mailtrap.io
+
+---
+
+## Redis Setup
+
+### Option A: Docker (Recommended for local dev)
+
+```bash
+# Pull and run Redis in the background
+docker run -d \
+  --name redis-notification \
+  -p 6379:6379 \
+  redis:7-alpine
+
+# Verify it's running
+docker ps
+
+# Connect to Redis CLI to test
+docker exec -it redis-notification redis-cli ping
+# Should print: PONG
+```
+
+### Option B: Install natively on macOS
+
+```bash
+brew install redis
+brew services start redis
+
+# Verify
+redis-cli ping
+# Should print: PONG
+```
+
+### Option C: Install natively on Ubuntu/Debian
+
+```bash
+sudo apt update
+sudo apt install redis-server -y
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+
+# Verify
+redis-cli ping
+```
+
+### Checking BullMQ keys in Redis (debugging)
+
+```bash
+redis-cli
+> KEYS bull:*            # See all BullMQ queue keys
+> LLEN bull:email-notifications:wait   # Jobs waiting
+```
+
+---
+
+## MongoDB Setup
+
+### Option A: Docker
+
+```bash
+docker run -d \
+  --name mongo-notification \
+  -p 27017:27017 \
+  mongo:7
+
+# Connect via Mongosh to verify
+mongosh "mongodb://localhost:27017/notification_service"
+```
+
+### Option B: MongoDB Atlas (Cloud — free tier)
+
+1. Go to https://cloud.mongodb.com
+2. Create a free M0 cluster
+3. Get your connection string
+4. Set `MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/notification_service`
+
+### Option C: Install natively on macOS
+
+```bash
+brew tap mongodb/brew
+brew install mongodb-community
+brew services start mongodb-community
+```
+
+### Verify MongoDB collections after sending notifications
+
+```js
+// In mongosh:
+use notification_service
+db.notifications.find().pretty()
+db.notifications.countDocuments({ status: "DELIVERED" })
+```
+
