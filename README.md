@@ -265,4 +265,268 @@ curl -X POST http://localhost:3000/api/notifications/email \
   }'
 ```
 
+---
+
+## API Reference
+
+### Base URL
+
+```
+http://localhost:3000/api
+```
+
+---
+
+### POST /notifications/email
+
+Queue an email notification.
+
+**Request Body**
+
+| Field     | Type   | Required | Description                              |
+|-----------|--------|----------|------------------------------------------|
+| `to`      | string | ✅       | Recipient email address                  |
+| `subject` | string | ✅       | Email subject (max 150 chars)            |
+| `body`    | string | ✅       | Email body (supports HTML)               |
+| `type`    | string | ✅       | `OTP` \| `WELCOME` \| `MARKETING`         |
+
+**Priority Mapping**
+
+| Type        | BullMQ Priority | Behaviour                        |
+|-------------|-----------------|----------------------------------|
+| `OTP`       | 1 (highest)     | Processed immediately            |
+| `WELCOME`   | 5               | Processed after OTPs             |
+| `MARKETING` | 10 (lowest)     | Processed last — best effort     |
+
+**Response:** `202 Accepted`
+
+---
+
+### GET /notifications
+
+List all notifications with optional filters.
+
+**Query Parameters**
+
+| Param    | Description                              |
+|----------|------------------------------------------|
+| `status` | Filter by status: QUEUED, PROCESSING, DELIVERED, FAILED |
+| `type`   | Filter by type: OTP, WELCOME, MARKETING  |
+| `page`   | Page number (default: 1)                 |
+| `limit`  | Results per page (default: 20)           |
+
+---
+
+### GET /notifications/:id
+
+Get a single notification by MongoDB `_id`.
+
+---
+
+### GET /notifications/dashboard
+
+Real-time dashboard combining MongoDB + BullMQ stats.
+
+---
+
+### GET /health
+
+Health check endpoint.
+
+---
+
+## Sample Requests & Responses
+
+### 1. Queue an OTP Email
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/notifications/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "user@example.com",
+    "subject": "Your OTP Code",
+    "body": "<h1>Your OTP is <strong>847291</strong></h1><p>Valid for 5 minutes.</p>",
+    "type": "OTP"
+  }'
+```
+
+**Response (202):**
+```json
+{
+  "success": true,
+  "message": "Notification queued successfully",
+  "data": {
+    "notificationId": "665f1a2b3c4d5e6f7a8b9c0d",
+    "jobId": "1",
+    "status": "QUEUED",
+    "type": "OTP",
+    "to": "user@example.com",
+    "queuedAt": "2024-06-04T10:30:00.000Z"
+  }
+}
+```
+
+---
+
+### 2. Queue a Welcome Email
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/notifications/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "newuser@example.com",
+    "subject": "Welcome to Our Platform!",
+    "body": "<h1>Welcome!</h1><p>We're glad you joined us. Get started by exploring our features.</p>",
+    "type": "WELCOME"
+  }'
+```
+
+**Response (202):**
+```json
+{
+  "success": true,
+  "message": "Notification queued successfully",
+  "data": {
+    "notificationId": "665f1a2b3c4d5e6f7a8b9c0e",
+    "jobId": "2",
+    "status": "QUEUED",
+    "type": "WELCOME",
+    "to": "newuser@example.com",
+    "queuedAt": "2024-06-04T10:30:05.000Z"
+  }
+}
+```
+
+---
+
+### 3. Queue a Marketing Email
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/api/notifications/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "subscriber@example.com",
+    "subject": "50% Off — This Weekend Only!",
+    "body": "<h1>Flash Sale!</h1><p>Use code SAVE50 for 50% off all plans.</p>",
+    "type": "MARKETING"
+  }'
+```
+
+---
+
+### 4. Validation Error Response
+
+**Request (missing `type`):**
+```bash
+curl -X POST http://localhost:3000/api/notifications/email \
+  -H "Content-Type: application/json" \
+  -d '{"to": "user@example.com", "subject": "Hello", "body": "World"}'
+```
+
+**Response (422):**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "type",
+      "message": "Type is required"
+    }
+  ]
+}
+```
+
+---
+
+### 5. Get Notification Status
+
+**Request:**
+```bash
+curl http://localhost:3000/api/notifications/665f1a2b3c4d5e6f7a8b9c0d
+```
+
+**Response (200 — after delivery):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "to": "user@example.com",
+    "subject": "Your OTP Code",
+    "body": "<h1>Your OTP is <strong>847291</strong></h1>",
+    "type": "OTP",
+    "status": "DELIVERED",
+    "jobId": "1",
+    "attempts": 1,
+    "errorMessage": null,
+    "queuedAt": "2024-06-04T10:30:00.000Z",
+    "processedAt": "2024-06-04T10:30:01.200Z",
+    "deliveredAt": "2024-06-04T10:30:01.850Z",
+    "failedAt": null,
+    "inDLQ": false,
+    "createdAt": "2024-06-04T10:30:00.000Z",
+    "updatedAt": "2024-06-04T10:30:01.850Z"
+  }
+}
+```
+
+---
+
+### 6. Dashboard
+
+**Request:**
+```bash
+curl http://localhost:3000/api/notifications/dashboard
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "totals": {
+      "queued": 2,
+      "processing": 1,
+      "delivered": 47,
+      "failed": 3,
+      "total": 53
+    },
+    "queue": {
+      "waiting": 2,
+      "active": 1,
+      "completed": 47,
+      "failed": 3,
+      "delayed": 0
+    },
+    "deadLetterQueue": {
+      "waiting": 3,
+      "total": 3
+    },
+    "byType": [
+      { "_id": "OTP", "total": 20, "delivered": 19, "failed": 1 },
+      { "_id": "WELCOME", "total": 18, "delivered": 18, "failed": 0 },
+      { "_id": "MARKETING", "total": 15, "delivered": 10, "failed": 2 }
+    ]
+  }
+}
+```
+
+---
+
+### 7. List Notifications with Filters
+
+**Request:**
+```bash
+# Get all failed notifications
+curl "http://localhost:3000/api/notifications?status=FAILED&page=1&limit=10"
+
+# Get all OTP notifications
+curl "http://localhost:3000/api/notifications?type=OTP"
+```
+
+
 
